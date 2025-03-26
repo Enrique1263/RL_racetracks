@@ -40,7 +40,7 @@ ACTION_DIM = 4
 SHOW_CAM = False
 SHOW_LIDAR = False
 
-EPISODES_LENGTH = 12
+EPISODES_LENGTH = 15
 REPLAY_MEMORY_SIZE = 10000
 MIN_REPLAY_MEMORY_SIZE = 1000
 MINIBATCH_SIZE = 16
@@ -59,7 +59,7 @@ MIN_EPSILON = 0.001
 
 AGGREGATE_STATS_EVERY = 10
 
-MIN_REWARD = 150
+MIN_REWARD = 1500
 
 
 class ModifiedTensorBoard:
@@ -224,6 +224,7 @@ class CarlaEnv:
         self.actor_list = []
         self.collision_hist = []
         self.spawn_point = np.random.choice(self.world.get_map().get_spawn_points())
+        # self.spawn_point = self.world.get_map().get_spawn_points()[3]
         self.spawn_point.rotation.yaw += random.randint(-5, 5)
         self.r25 = self.world.spawn_actor(self.bp_r25, self.spawn_point)
         self.actor_list.append(self.r25)
@@ -270,8 +271,7 @@ class CarlaEnv:
     def step(self, action: np.ndarray):
         # view = np.array(self.front_camera) / 255.0
         throttle = float(action[0])
-        bo = float(action[1])
-        brake = float(action[1]) if action[1] > 0.5 else 0.0
+        brake = 0 # (float(action[1]) - 0.9) * 10 if action[1] > 0.9 else 0.0
         steer_right = float(action[2])
         steer_left = float(action[3])
         steer = float(steer_right - steer_left)
@@ -281,6 +281,7 @@ class CarlaEnv:
         lidar = np.array(self.lidar_cast_ray)
         lidar_right = sum(lidar[0:3]) / 3
         lidar_left = sum(lidar[4:7]) / 3
+        lidar_front = lidar[3]
 
         diff = abs(lidar_right - lidar_left)
 
@@ -292,37 +293,37 @@ class CarlaEnv:
 
         if len(self.collision_hist) != 0:
             done = True
-            reward = -200
-        # elif kmh < 10:
-        #     done = False
-        #     reward = -10
-        # elif 10 < kmh < 50:
-        #     done = False
-        #     reward = -1
-        # else:
-        #     done = False
-        #     reward = 10
+            reward -= 2000
         
-        if bo > 0.001:
+        if brake > 0.001:
             reward -= 50
         elif diff < 1.0 and throttle > 0.8:
-            reward += 5
+            reward += 15
         elif throttle > 0.4:
-            reward += 1
+            reward += 4
 
 
-        if diff < 0.6 and bo > 0.001:
-            reward -= 2
+        if diff < 0.6 and brake > 0.001:
+            reward -= 20
 
-        if diff < 2:
-            reward += -(diff - 2)/3 * 10
+        if lidar_front > 5.0 and diff < 1.0:
+            if kmh < 1:
+                reward = -30
+            elif 1 < kmh < 20:
+                reward = 12 - kmh
+            else:
+                reward += 1.5 * lidar_front
+        elif diff <= 2:
+            reward += -(diff - 2)/2 * 30
         elif diff < 10:
-            reward += -((diff - 2)/10) *10
+            reward += -((diff - 2)/10) * 90
         else:
-            reward -= 1.0
+            reward -= 100.0
 
         if (time.time() - self.episode_start) > EPISODES_LENGTH:
             done = True
+
+        # print(f"Diff: {diff:.6f}")
 
         return self.front_camera, reward, done, None
 
@@ -482,7 +483,7 @@ if __name__ == '__main__':
     client = carla.Client(args.host, args.port)
     client.set_timeout(2.0)
     
-    FPS = 60
+    FPS = 30
     ep_rewards = [-200]
 
     random.seed(5)
@@ -502,6 +503,7 @@ if __name__ == '__main__':
         time.sleep(0.01)
 
     for episode in tqdm(range(1, EPISODES + 1), ascii=True, unit='episodes'):
+        time.sleep(1)
         env.collision_hist = []
         agent.tensorboard.step = episode  # Track episode in TensorBoard
         episode_reward = 0
@@ -509,27 +511,35 @@ if __name__ == '__main__':
         current_state = env.reset()
         done = False
         episode_start = time.time()
+        logs = []
 
         while not done:
             step += 1
 
             # **Select action using SAC agent**
-            action = agent.select_action(current_state)
+            action = agent.select_action(current_state, deterministic=False)
             print(action)
 
             # **Take step in environment**
             new_state, reward, done, _ = env.step(action)
+            print(reward)
 
             # **Store transition in replay buffer**
             agent.update_replay_memory((current_state, action, reward, new_state, done))
 
             episode_reward += reward
+            logs.append((episode, action.tolist(), reward, episode_reward))
             current_state = new_state
             time.sleep(1/FPS)
 
         # **Destroy actors at end of episode**
         for actor in env.actor_list:
             actor.destroy()
+        
+        # save logs in log file
+        with open(f'logs/{MODEL_NAME}.txt', 'a') as f:
+            for log in logs:
+                f.write(f"{log}\n")
 
         # **Log episode rewards**
         ep_rewards.append(episode_reward)
@@ -545,8 +555,8 @@ if __name__ == '__main__':
             # **Save model if performance is good**
             if min_reward >= MIN_REWARD:
                 torch.save(agent.actor.state_dict(), f'models/{MODEL_NAME}_actor_{average_reward:.2f}.pth')
-                torch.save(agent.critic1.state_dict(), f'models/{MODEL_NAME}_critic1_{average_reward:.2f}.pth')
-                torch.save(agent.critic2.state_dict(), f'models/{MODEL_NAME}_critic2_{average_reward:.2f}.pth')
+                # torch.save(agent.critic1.state_dict(), f'models/{MODEL_NAME}_critic1_{average_reward:.2f}.pth')
+                # torch.save(agent.critic2.state_dict(), f'models/{MODEL_NAME}_critic2_{average_reward:.2f}.pth')
 
     # **Terminate agent and close TensorBoard**
     agent.terminate = True
@@ -555,5 +565,5 @@ if __name__ == '__main__':
 
     # **Final save**
     torch.save(agent.actor.state_dict(), f'models/{MODEL_NAME}_final_actor.pth')
-    torch.save(agent.critic1.state_dict(), f'models/{MODEL_NAME}_final_critic1.pth')
-    torch.save(agent.critic2.state_dict(), f'models/{MODEL_NAME}_final_critic2.pth')
+    # torch.save(agent.critic1.state_dict(), f'models/{MODEL_NAME}_final_critic1.pth')
+    # torch.save(agent.critic2.state_dict(), f'models/{MODEL_NAME}_final_critic2.pth')
