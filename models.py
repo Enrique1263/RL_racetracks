@@ -87,6 +87,20 @@ class R25TinySimple(nn.Module):
         x = self.fc2(x)
         return x
     
+class R25XY(nn.Module):
+    def __init__(self, input_shape):
+        super(R25XY, self).__init__()
+        self.input_shape = input_shape
+        self.fc1 = nn.Linear(in_features=input_shape, out_features=80)
+        self.fc2 = nn.Linear(in_features=80, out_features=10)
+        self.fc3 = nn.Linear(in_features=10, out_features=4) # throttle, brake, right_steer, left_steer
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+    
 
 class Actor(nn.Module):
     def __init__(self, state_shape, action_dim):
