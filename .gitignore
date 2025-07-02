@@ -1,0 +1,8 @@
+/models/R25T*
+/models/R25S*
+/models/R25C*
+/logs
+/lidar
+/images
+*.avi
+/__pycache__
