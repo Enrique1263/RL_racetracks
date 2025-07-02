@@ -112,25 +112,6 @@ class CarlaEnv:
     def process_lidar(self, data):
         raw_data = np.frombuffer(data.raw_data, dtype=np.float32)
         points = np.reshape(raw_data, (-1, 3))  # Each point is (x, y, z)
-        # print(points)
-        # print('-'*20)
-
-        # TODO: Check if this is necessary
-        # rotation = lidar_transform.rotation
-
-        # # Create a rotation matrix from the LiDAR's orientation (pitch, yaw, roll)
-        # # LiDAR rotation: pitch, yaw, roll in degrees, convert to radians
-        # pitch, yaw, roll = np.radians([rotation.pitch, rotation.yaw, rotation.roll])
-
-        # # Construct rotation matrix (3x3) based on LiDAR's orientation
-        # rotation_matrix = np.array([
-        #     [np.cos(yaw) * np.cos(pitch), np.cos(yaw) * np.sin(pitch) * np.sin(roll) - np.sin(yaw) * np.cos(roll), np.cos(yaw) * np.sin(pitch) * np.cos(roll) + np.sin(yaw) * np.sin(roll)],
-        #     [np.sin(yaw) * np.cos(pitch), np.sin(yaw) * np.sin(pitch) * np.sin(roll) + np.cos(yaw) * np.cos(roll), np.sin(yaw) * np.sin(pitch) * np.cos(roll) - np.cos(yaw) * np.sin(roll)],
-        #     [-np.sin(pitch), np.cos(pitch) * np.sin(roll), np.cos(pitch) * np.cos(roll)]
-        # ])
-
-        # # Transform the points to the LiDAR's local coordinate system
-        # points_local = np.dot(points, rotation_matrix.T)
 
         angles = np.degrees(np.arctan2(points[:, 1], points[:, 0]))  # angle in degrees
 
@@ -264,9 +245,8 @@ class CarlaEnv:
         return self.front_camera
 
     def step(self, action: np.ndarray):
-        # view = np.array(self.front_camera) / 255.0
         throttle = float(action[0])
-        brake = round(float(action[1]), 3) # TODO: see if rounding helps
+        brake = round(float(action[1]), 3)
         steer_right = float(action[2])
         steer_left = float(action[3])
         steer = float(steer_right - steer_left)
@@ -288,16 +268,7 @@ class CarlaEnv:
         if len(self.collision_hist) != 0:
             done = True
             reward = -200
-        # elif kmh < 10:
-        #     done = False
-        #     reward = -10
-        # elif 10 < kmh < 50:
-        #     done = False
-        #     reward = -1
-        # else:
-        #     done = False
-        #     reward = 10
-        
+
         if brake > 0.001:
             reward -= 0.5
 
@@ -339,7 +310,7 @@ class DQNAgent:
         self.last_logged_episode = 0
         self.training_initialized = False
 
-        self.criterion = MSELoss()  # Example loss function, change as needed
+        self.criterion = MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=0.001)
 
     def create_model(self):

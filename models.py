@@ -46,20 +46,12 @@ class R25Tiny(nn.Module):
         super(R25Tiny, self).__init__()
         self.input_shape = input_shape
         self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=8, kernel_size=3, stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
-        # self.fc1 = nn.Linear(in_features=128*80*60, out_features=512)
         self.fc2 = nn.Linear(in_features=8 * input_shape[1] // 2 * input_shape[2] // 2, out_features=4) # throttle, brake, right_steer, left_steer
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, kernel_size=2, stride=2) # (8, 3, 2)
-        # x = F.relu(self.conv2(x))
-        # x = F.max_pool2d(x, kernel_size=2, stride=2) # (64, 160, 120)
-        # x = F.relu(self.conv3(x))
-        # x = F.max_pool2d(x, kernel_size=2, stride=2) # (128, 80, 60)
         x = x.view(-1, 8 * self.input_shape[1] // 2 * self.input_shape[2] // 2)
-        # x = F.relu(self.fc1(x))
         x = self.fc2(x)
         x = torch.sigmoid(x)
         return x
@@ -70,20 +62,12 @@ class R25TinySimple(nn.Module):
         super(R25TinySimple, self).__init__()
         self.input_shape = input_shape
         self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=8, kernel_size=3, stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
-        # self.fc1 = nn.Linear(in_features=128*80*60, out_features=512)
         self.fc2 = nn.Linear(in_features=8 * input_shape[1] // 2 * input_shape[2] // 2, out_features=4) # left, forward, right, brake
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, kernel_size=2, stride=2) # (8, 3, 2)
-        # x = F.relu(self.conv2(x))
-        # x = F.max_pool2d(x, kernel_size=2, stride=2) # (64, 160, 120)
-        # x = F.relu(self.conv3(x))
-        # x = F.max_pool2d(x, kernel_size=2, stride=2) # (128, 80, 60)
         x = x.view(-1, 8 * self.input_shape[1] // 2 * self.input_shape[2] // 2)
-        # x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
     

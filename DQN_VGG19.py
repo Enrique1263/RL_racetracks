@@ -176,15 +176,6 @@ class CarlaEnv:
         if len(self.collision_hist) != 0:
             done = True
             reward = -20
-        # elif kmh < 10:
-        #     done = False
-        #     reward = -10
-        # elif 10 < kmh < 50:
-        #     done = False
-        #     reward = -1
-        # else:
-        #     done = False
-        #     reward = 10
         elif (throttle - brake) > 0.8:
             reward += 0.5
         elif (throttle - brake) > 0.5:

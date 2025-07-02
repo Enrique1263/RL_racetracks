@@ -146,15 +146,12 @@ class CarlaEnv:
         right_view = np.sum(view[:, :, 4:])
         left_view = np.sum(view[:, :, :2])
         throttle = float(action[0])
-        brake = round(float(action[1]), 3) # TODO: see if rounding helps
+        brake = round(float(action[1]), 3)
         steer_right = float(action[2])
         steer_left = float(action[3])
         steer = float(steer_right - steer_left)
 
         self.r25.apply_control(carla.VehicleControl(throttle=throttle, brake=brake, steer=steer))
-
-        v = self.r25.get_velocity()
-        kmh = int(3.6 * np.sqrt(v.x**2 + v.y**2 + v.z**2))
 
         reward = 0
         done = False
@@ -174,15 +171,6 @@ class CarlaEnv:
             reward -= 0.3
         elif left_view <= 4 and (steer_right - steer_left) > 0:
             reward += 0.1
-        # elif kmh < 10:
-        #     done = False
-        #     reward = -10
-        # elif 10 < kmh < 50:
-        #     done = False
-        #     reward = -1
-        # else:
-        #     done = False
-        #     reward = 10
         elif (throttle - brake) > 0.8:
             reward += 0.5
         elif (throttle - brake) > 0.5:

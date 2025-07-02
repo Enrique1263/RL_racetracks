@@ -10,8 +10,6 @@ from tqdm import tqdm
 from torch.optim import Adam
 import random
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import TensorDataset, DataLoader
-from torch.nn import MSELoss
 from torch.distributions import Normal
 from torch import nn
 from torch import optim
@@ -116,26 +114,6 @@ class CarlaEnv:
     def process_lidar(self, data):
         raw_data = np.frombuffer(data.raw_data, dtype=np.float32)
         points = np.reshape(raw_data, (-1, 3))  # Each point is (x, y, z)
-        # print(points)
-        # print('-'*20)
-
-        # TODO: Check if this is necessary
-        # rotation = lidar_transform.rotation
-
-        # # Create a rotation matrix from the LiDAR's orientation (pitch, yaw, roll)
-        # # LiDAR rotation: pitch, yaw, roll in degrees, convert to radians
-        # pitch, yaw, roll = np.radians([rotation.pitch, rotation.yaw, rotation.roll])
-
-        # # Construct rotation matrix (3x3) based on LiDAR's orientation
-        # rotation_matrix = np.array([
-        #     [np.cos(yaw) * np.cos(pitch), np.cos(yaw) * np.sin(pitch) * np.sin(roll) - np.sin(yaw) * np.cos(roll), np.cos(yaw) * np.sin(pitch) * np.cos(roll) + np.sin(yaw) * np.sin(roll)],
-        #     [np.sin(yaw) * np.cos(pitch), np.sin(yaw) * np.sin(pitch) * np.sin(roll) + np.cos(yaw) * np.cos(roll), np.sin(yaw) * np.sin(pitch) * np.cos(roll) - np.cos(yaw) * np.sin(roll)],
-        #     [-np.sin(pitch), np.cos(pitch) * np.sin(roll), np.cos(pitch) * np.cos(roll)]
-        # ])
-
-        # # Transform the points to the LiDAR's local coordinate system
-        # points_local = np.dot(points, rotation_matrix.T)
-
         angles = np.degrees(np.arctan2(points[:, 1], points[:, 0]))  # angle in degrees
 
         min_angle = -180
@@ -269,9 +247,8 @@ class CarlaEnv:
         return self.front_camera
 
     def step(self, action: np.ndarray):
-        # view = np.array(self.front_camera) / 255.0
         throttle = float(action[0])
-        brake = 0 # (float(action[1]) - 0.9) * 10 if action[1] > 0.9 else 0.0
+        brake = 0
         steer_right = float(action[2])
         steer_left = float(action[3])
         steer = float(steer_right - steer_left)
@@ -555,8 +532,6 @@ if __name__ == '__main__':
             # **Save model if performance is good**
             if min_reward >= MIN_REWARD:
                 torch.save(agent.actor.state_dict(), f'models/{MODEL_NAME}_actor_{average_reward:.2f}.pth')
-                # torch.save(agent.critic1.state_dict(), f'models/{MODEL_NAME}_critic1_{average_reward:.2f}.pth')
-                # torch.save(agent.critic2.state_dict(), f'models/{MODEL_NAME}_critic2_{average_reward:.2f}.pth')
 
     # **Terminate agent and close TensorBoard**
     agent.terminate = True
@@ -565,5 +540,3 @@ if __name__ == '__main__':
 
     # **Final save**
     torch.save(agent.actor.state_dict(), f'models/{MODEL_NAME}_final_actor.pth')
-    # torch.save(agent.critic1.state_dict(), f'models/{MODEL_NAME}_final_critic1.pth')
-    # torch.save(agent.critic2.state_dict(), f'models/{MODEL_NAME}_final_critic2.pth')

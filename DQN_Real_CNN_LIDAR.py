@@ -10,7 +10,6 @@ from tqdm import tqdm
 from torch.optim import Adam
 import random
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import TensorDataset, DataLoader
 from torch.nn import MSELoss
 from threading import Thread
 
@@ -112,25 +111,6 @@ class CarlaEnv:
     def process_lidar(self, data):
         raw_data = np.frombuffer(data.raw_data, dtype=np.float32)
         points = np.reshape(raw_data, (-1, 3))  # Each point is (x, y, z)
-        # print(points)
-        # print('-'*20)
-
-        # TODO: Check if this is necessary
-        # rotation = lidar_transform.rotation
-
-        # # Create a rotation matrix from the LiDAR's orientation (pitch, yaw, roll)
-        # # LiDAR rotation: pitch, yaw, roll in degrees, convert to radians
-        # pitch, yaw, roll = np.radians([rotation.pitch, rotation.yaw, rotation.roll])
-
-        # # Construct rotation matrix (3x3) based on LiDAR's orientation
-        # rotation_matrix = np.array([
-        #     [np.cos(yaw) * np.cos(pitch), np.cos(yaw) * np.sin(pitch) * np.sin(roll) - np.sin(yaw) * np.cos(roll), np.cos(yaw) * np.sin(pitch) * np.cos(roll) + np.sin(yaw) * np.sin(roll)],
-        #     [np.sin(yaw) * np.cos(pitch), np.sin(yaw) * np.sin(pitch) * np.sin(roll) + np.cos(yaw) * np.cos(roll), np.sin(yaw) * np.sin(pitch) * np.cos(roll) - np.cos(yaw) * np.sin(roll)],
-        #     [-np.sin(pitch), np.cos(pitch) * np.sin(roll), np.cos(pitch) * np.cos(roll)]
-        # ])
-
-        # # Transform the points to the LiDAR's local coordinate system
-        # points_local = np.dot(points, rotation_matrix.T)
 
         angles = np.degrees(np.arctan2(points[:, 1], points[:, 0]))  # angle in degrees
 
@@ -275,7 +255,7 @@ class CarlaEnv:
             self.r25.apply_control(carla.VehicleControl(throttle=1.0, steer=1.0))
         elif action is 3:
             # brake
-            self.r25.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0)) # throttle 0 or throttle 1??
+            self.r25.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0))
 
         lidar = np.array(self.lidar_cast_ray)
         lidar_right = sum(lidar[0:3]) / 3
@@ -292,15 +272,6 @@ class CarlaEnv:
         if len(self.collision_hist) != 0:
             done = True
             reward = -200
-        # elif kmh < 10:
-        #     done = False
-        #     reward = -10
-        # elif 10 < kmh < 50:
-        #     done = False
-        #     reward = -1
-        # else:
-        #     done = False
-        #     reward = 10
 
         if diff < 1.0 and action == 1:
             reward += 50

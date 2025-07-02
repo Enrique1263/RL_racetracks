@@ -42,24 +42,6 @@ def process(image):
 def process_lidar(data):
     raw_data = np.frombuffer(data.raw_data, dtype=np.float32)
     points = np.reshape(raw_data, (-1, 3))  # Each point is (x, y, z)
-    # print(points)
-    # print('-'*20)
-
-    # rotation = lidar_transform.rotation
-
-    # # Create a rotation matrix from the LiDAR's orientation (pitch, yaw, roll)
-    # # LiDAR rotation: pitch, yaw, roll in degrees, convert to radians
-    # pitch, yaw, roll = np.radians([rotation.pitch, rotation.yaw, rotation.roll])
-
-    # # Construct rotation matrix (3x3) based on LiDAR's orientation
-    # rotation_matrix = np.array([
-    #     [np.cos(yaw) * np.cos(pitch), np.cos(yaw) * np.sin(pitch) * np.sin(roll) - np.sin(yaw) * np.cos(roll), np.cos(yaw) * np.sin(pitch) * np.cos(roll) + np.sin(yaw) * np.sin(roll)],
-    #     [np.sin(yaw) * np.cos(pitch), np.sin(yaw) * np.sin(pitch) * np.sin(roll) + np.cos(yaw) * np.cos(roll), np.sin(yaw) * np.sin(pitch) * np.cos(roll) - np.cos(yaw) * np.sin(roll)],
-    #     [-np.sin(pitch), np.cos(pitch) * np.sin(roll), np.cos(pitch) * np.cos(roll)]
-    # ])
-
-    # # Transform the points to the LiDAR's local coordinate system
-    # points_local = np.dot(points, rotation_matrix.T)
 
     angles = np.degrees(np.arctan2(points[:, 1], points[:, 0]))  # angle in degrees
 
@@ -137,8 +119,6 @@ def process_lidar(data):
 
         else:
             distances.append(50)
-
-    # print(distances)
     print(f'Right side mean distance: {np.mean(distances[0:3]):.2f} m. Left side mean distance: {np.mean(distances[4:]):.2f} m. Difference: {np.mean(distances[0:3]) - np.mean(distances[4:]):.2f} m.')
     cv2.imwrite(f"./lidar/lidar_points_frame{i}.png", image)
 

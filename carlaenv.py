@@ -8,8 +8,6 @@ import random
 from tqdm import tqdm
 import torch
 
-from models import R25TinySimple
-
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
@@ -95,15 +93,16 @@ class CarlaEnv:
         return self.front_camera
 
     def step(self, action):
+        # Acciones continuas
         # view = np.array(self.front_camera) / 255.0
         # throttle = float(action[0])
-        # brake = round(float(action[1]), 3) # TODO: see if rounding helps
+        # brake = round(float(action[1]), 3)
         # steer_right = float(action[2])
         # steer_left = float(action[3])
         # steer = float(steer_right - steer_left)
 
         # self.r25.apply_control(carla.VehicleControl(throttle=throttle, brake=brake, steer=steer))
-
+        # Acciones discretas
         if action == 0:
             # steer left
             self.r25.apply_control(carla.VehicleControl(throttle=1.0, steer=-1.0))
@@ -158,7 +157,7 @@ if __name__ == '__main__':
     env = CarlaEnv(client=client)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    agent = torch.load('models/R25Simple_third_low.pth')
+    agent = torch.load('models/R25Simple_first.pth')
     agent.eval()
     agent.to(device)
 
@@ -174,7 +173,6 @@ if __name__ == '__main__':
         while True:
             state = torch.tensor(current_state, dtype=torch.float32).to(device) / 255.0
             action = agent(state)[0].detach().cpu().numpy()
-            # action = np.array([action[0], action[1], action[2], action[3]])
             action = np.argmax(action)
             print(action)
             time.sleep(1/FPS)

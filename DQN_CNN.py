@@ -150,15 +150,6 @@ class CarlaEnv:
         if len(self.collision_hist) != 0:
             done = True
             reward = -200
-        # elif kmh < 10:
-        #     done = False
-        #     reward = -10
-        # elif 10 < kmh < 50:
-        #     done = False
-        #     reward = -1
-        # else:
-        #     done = False
-        #     reward = 10
         elif (throttle - brake) > 0.5:
             reward += 0.1
         elif (throttle - brake) > 0.1:
@@ -191,7 +182,7 @@ class DQNAgent:
         self.last_logged_episode = 0
         self.training_initialized = False
 
-        self.criterion = MSELoss()  # Example loss function, change as needed
+        self.criterion = MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=0.001)
 
     def create_model(self):
@@ -206,7 +197,6 @@ class DQNAgent:
             return
         
         minibatch = random.sample(self.replay_memory, MINIBATCH_SIZE)
-        # print(f'Minibatch: {minibatch}')
 
         current_states = torch.tensor(np.array([transition[0] for transition in minibatch]) / 255.0, dtype=torch.float32).to(self.device)
         new_current_states = torch.tensor(np.array([transition[3] for transition in minibatch]) / 255.0, dtype=torch.float32).to(self.device)

@@ -28,7 +28,7 @@ import carla
 import argparse
 
 EPISODES_LENGTH = 30
-REPLAY_MEMORY_SIZE = 10000
+REPLAY_MEMORY_SIZE = 2000
 MIN_REPLAY_MEMORY_SIZE = 200
 MINIBATCH_SIZE = 64
 PREDICTION_BATCH_SIZE = 1
@@ -37,20 +37,19 @@ UPDATE_TARGET_EVERY = 5
 
 MODEL_NAME = 'R25XY'
 
-EPISODES = 1500
+EPISODES = 1000
 
 DISCOUNT = 0.99
-# epsilon = 0.25
 epsilon = 0.9
-EPSILON_DECAY = 0.95
-MIN_EPSILON = 0.2
+EPSILON_DECAY = 0.99
+MIN_EPSILON = 0.1
 
 AGGREGATE_STATS_EVERY = 10
 
-MIN_REWARD = 55000
+MIN_REWARD = 550000
 
-NUM_TIMES_PASSED = 40
-START_STATE_CHECKPOINT = 0
+NUM_TIMES_PASSED = 45
+START_STATE_CHECKPOINT = 4
 memory_flag = False
 
 
@@ -84,15 +83,16 @@ class CarlaEnv:
         self.y = None
         self.vx = None
         self.vy = None
-        self.checkpoints = [(22.40, 29.70), (-5.3, 52.8), (-14.50, 53.50), (-33.01, 48.57), (-51.75, 36.25), (-44.48, 22.41), (-30.92, 23.95), (-22.60, 21.53), (-21.39, 16.18), (-39.31, -9.51)]
+        self.checkpoints = [(22.40, 29.70), (-5.3, 52.8), (-32.50, 49.00), (-51.50, 32.25), (-36.00, 22.00), (-25.80, 8.40), (-21.39, 16.18), (-39.31, -9.51)] #, (-14.50, 52.5), ->  (-51.10, 32.25)  <-   , (-30.92, 23.95)
         self.checkpoint = 0
         self.px = None
         self.py = None
         self.state_checkpoint = state_checkpoint
         self.times_passed = 0
-        self.d = 0
+        self.d = 0.1
         self.epsilon = epsilon
         self.memory_flag = memory_flag
+        self.steering_angle = 0.0
 
     def on_collision(self, event):
         self.collision_hist.append(event)
@@ -124,7 +124,8 @@ class CarlaEnv:
         self.x = round(loc.x,2)
         self.y = round(loc.y,2)
         self.slow_reward = 0
-        self.d = 0
+        self.d = 0.0001
+        self.steering_angle = 0.0
 
         return (self.x, self.y, self.vx, self.vy)
 
@@ -134,24 +135,26 @@ class CarlaEnv:
         if action is 0:
             # print("steer left")
             # steer left
-            self.r25.apply_control(carla.VehicleControl(throttle=0.8, steer=-0.9))
+            self.r25.apply_control(carla.VehicleControl(throttle=0.7, steer=-1.0))
+            self.steering_angle = -0.1
         elif action is 1:
             # print("forward")
             # forward
             self.r25.apply_control(carla.VehicleControl(throttle=1.0, steer=0.0))
+            self.steering_angle = 0.0
         elif action is 2:
             # print("steer right")
             # steer right
-            self.r25.apply_control(carla.VehicleControl(throttle=0.8, steer=0.9))
+            self.r25.apply_control(carla.VehicleControl(throttle=0.7, steer=1.0))
+            self.steering_angle = 0.1
         elif action is 3:
             # print("decelerate")
             # decelerate
-            self.r25.apply_control(carla.VehicleControl(throttle=0.1))
+            self.r25.apply_control(carla.VehicleControl(throttle=0.0, steer=self.steering_angle))
 
         time.sleep(1/15)
 
         v = self.r25.get_velocity()
-        kmh = int(3.6 * np.sqrt(v.x**2 + v.y**2 + v.z**2))
         self.vx = round(v.x,2)
         self.vy = round(v.y,2)
         loc = self.r25.get_location()
@@ -161,39 +164,24 @@ class CarlaEnv:
         if len(self.collision_hist) != 0:
             done = True
             reward = -8000 / self.d
-        # elif np.sqrt((self.x - self.checkpoints[self.checkpoint][0]) ** 2 + (self.y - self.checkpoints[self.checkpoint][1]) ** 2) < 1:
-        #     print(f"Checkpoint {self.checkpoint} reached")
-        #     self.checkpoint += 1
-        #     reward = 10000
-        #     if self.checkpoint >= len(self.checkpoints):
-        #         done = True
-        #         reward = 2000
-        #         print(f"Episode finished after {time.time() - self.episode_start} seconds")
-        #     else:
-        #         done = False
-        # else:
-        #     done = False
-        #     reward = -1
         else:
             done = False
             d = np.sqrt((self.x - self.px) ** 2 + (self.y - self.py) ** 2)
-            self.d += d
+            if self.state_checkpoint <= self.checkpoint:
+                self.d += d
             if (time.time() - self.episode_start) > 3 and d < 0.2:
                 reward = -20
                 self.slow_reward -= 20
-            elif d > 0.85:
+            elif d > 0.65:
                 reward = d * 30
             else:
-                reward = d * 10
+                reward = d * 30
 
-        # if np.sqrt((self.x - 42.28) ** 2 + (self.y - 11.56) ** 2) < 1 and action != 1:
-        #     reward -= 100
-        # elif kmh < 10.0:
-        #     reward += kmh -10.0
-        if np.sqrt((self.x - self.checkpoints[self.checkpoint][0]) ** 2 + (self.y - self.checkpoints[self.checkpoint][1]) ** 2) < 1.05:
+        if np.sqrt((self.x - self.checkpoints[self.checkpoint][0]) ** 2 + (self.y - self.checkpoints[self.checkpoint][1]) ** 2) < 1.55:
             print(f"Checkpoint {self.checkpoint} reached")
             if self.checkpoint == self.state_checkpoint:
                 self.times_passed += 1
+                reward += 10000
                 if self.times_passed == NUM_TIMES_PASSED:
                     self.state_checkpoint += 1
                     self.times_passed = 0
@@ -225,10 +213,10 @@ class DQNAgent:
         self.last_logged_episode = 0
         self.training_initialized = False
 
-        self.criterion = MSELoss()  # Example loss function, change as needed
+        self.criterion = MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=0.001)
 
-        self.model_list = []
+        self.model_list = [torch.load(f'models/{MODEL_NAME}__sector{i}.pth').to(self.device) for i in range(START_STATE_CHECKPOINT)]
 
     def create_model(self):
         model = R25XY(input_shape=(4))
@@ -340,7 +328,7 @@ if __name__ == '__main__':
         os.makedirs('models')
 
     agent = DQNAgent()
-    env = CarlaEnv(client=client, epsilon=epsilon, memory_flag=memory_flag)
+    env = CarlaEnv(client=client, epsilon=epsilon, memory_flag=memory_flag, state_checkpoint=START_STATE_CHECKPOINT)
 
     trainer_thread = Thread(target=agent.train_in_loop, daemon=True)
     trainer_thread.start()
@@ -394,6 +382,7 @@ if __name__ == '__main__':
             # print(f'Reward: {reward}')
             episode_reward += reward
             if env.state_checkpoint <= env.checkpoint:
+                episode_reward += reward
                 agent.update_replay_memory((current_state, action, reward, new_state, done))
 
             current_state = new_state
@@ -403,6 +392,7 @@ if __name__ == '__main__':
                 break
         print(f"Episode {episode} finished after {step} steps with reward {episode_reward}")
         print(f"{env.slow_reward} slow reward")
+        print(f"Episode took {time.time() - episode_start} seconds, and the car travelled {env.d} meters")
         for actor in env.actor_list:
             actor.destroy()
 
@@ -419,7 +409,7 @@ if __name__ == '__main__':
             if min_reward >= MIN_REWARD:
                 torch.save(agent.model, f'models/{MODEL_NAME}__{average_reward:_>7.2f}avg__{int(time.time())}.pth')
 
-        if env.epsilon > MIN_EPSILON:
+        if env.epsilon > MIN_EPSILON and not env.state_checkpoint > env.checkpoint:
             env.epsilon *= EPSILON_DECAY
             env.epsilon = max(MIN_EPSILON, env.epsilon)
 
